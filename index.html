@@ -3,119 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WordPress XML Export Viewer</title>
+    <title>XML Structure Debugger</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 20px; 
-            background-color: #f5f5f5;
-        }
-        .container { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .post { 
-            border: 1px solid #ddd; 
-            padding: 20px; 
-            margin: 15px 0; 
-            border-radius: 5px;
-            background: #fafafa;
-        }
-        .post-title { 
-            color: #333; 
-            margin-top: 0;
-        }
-        .meta { 
-            color: #666; 
-            font-size: 0.9em; 
-            margin-bottom: 10px;
-        }
-        .loading { 
-            text-align: center; 
-            padding: 40px;
-        }
-        .error { 
-            color: red; 
-            padding: 20px; 
-            background: #ffe6e6; 
-            border-radius: 5px;
-        }
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .item { border: 1px solid #ccc; margin: 10px 0; padding: 15px; background: #f9f9f9; }
+        .tag { color: #0073aa; font-weight: bold; }
+        .content { background: white; padding: 10px; margin: 5px 0; border-left: 3px solid #0073aa; }
+        .error { color: red; }
+        .success { color: green; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>WordPress Export Viewer</h1>
-        <p>Displaying content from: <strong>buildcraft.WordPress.2025-11-17.xml</strong></p>
-        <div id="content">
-            <div class="loading">Loading content...</div>
-        </div>
-    </div>
+    <h1>XML Structure Debugger</h1>
+    <div id="debug-info"></div>
+    <div id="xml-structure"></div>
 
     <script>
-        // Load and parse XML
-        async function loadXML() {
+        async function debugXML() {
             try {
                 const response = await fetch('buildcraft.WordPress.2025-11-17.xml');
                 const xmlText = await response.text();
-                
-                // Parse XML
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                
+
                 // Check for parsing errors
                 if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
-                    throw new Error('Error parsing XML');
+                    document.getElementById('debug-info').innerHTML = 
+                        '<div class="error">XML Parsing Error: ' + 
+                        xmlDoc.getElementsByTagName("parsererror")[0].textContent + '</div>';
+                    return;
                 }
-                
-                displayPosts(xmlDoc);
-                
-            } catch (error) {
-                document.getElementById('content').innerHTML = 
-                    '<div class="error">Error loading XML file: ' + error.message + '</div>';
-            }
-        }
 
-        function displayPosts(xmlDoc) {
-            const contentDiv = document.getElementById('content');
-            const items = xmlDoc.getElementsByTagName('item');
-            
-            if (items.length === 0) {
-                contentDiv.innerHTML = '<div class="error">No posts found in XML file</div>';
-                return;
-            }
-            
-            let html = `<h2>Found ${items.length} Items</h2>`;
-            
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                const title = item.getElementsByTagName('title')[0]?.textContent || 'No Title';
-                const content = item.getElementsByTagName('content:encoded')[0]?.textContent || 
-                               item.getElementsByTagName('description')[0]?.textContent || 
-                               'No Content';
-                const date = item.getElementsByTagName('pubDate')[0]?.textContent || 'Unknown Date';
-                const link = item.getElementsByTagName('link')[0]?.textContent || '#';
-                
-                html += `
-                    <div class="post">
-                        <h3 class="post-title">${title}</h3>
-                        <div class="meta">
-                            <strong>Date:</strong> ${new Date(date).toLocaleDateString()} | 
-                            <strong>Original:</strong> <a href="${link}" target="_blank">View Original</a>
-                        </div>
-                        <div class="post-content">${content.substring(0, 500)}...</div>
+                // Show basic info
+                const items = xmlDoc.getElementsByTagName('item');
+                document.getElementById('debug-info').innerHTML = `
+                    <div class="success">
+                        <h3>XML Loaded Successfully</h3>
+                        <p>Found ${items.length} &lt;item&gt; elements</p>
                     </div>
                 `;
+
+                // Show structure of first few items
+                let structureHTML = '<h3>Structure of First 3 Items:</h3>';
+                for (let i = 0; i < Math.min(3, items.length); i++) {
+                    structureHTML += `<div class="item">`;
+                    structureHTML += `<h4>Item ${i + 1}:</h4>`;
+                    
+                    const item = items[i];
+                    for (let j = 0; j < item.children.length; j++) {
+                        const child = item.children[j];
+                        structureHTML += `
+                            <div class="tag">&lt;${child.tagName}&gt;</div>
+                            <div class="content">${child.textContent.substring(0, 200)}...</div>
+                        `;
+                    }
+                    structureHTML += `</div>`;
+                }
+
+                document.getElementById('xml-structure').innerHTML = structureHTML;
+
+            } catch (error) {
+                document.getElementById('debug-info').innerHTML = 
+                    '<div class="error">Error: ' + error.message + '</div>';
             }
-            
-            contentDiv.innerHTML = html;
         }
 
-        // Load XML when page loads
-        document.addEventListener('DOMContentLoaded', loadXML);
+        document.addEventListener('DOMContentLoaded', debugXML);
     </script>
 </body>
 </html>
