@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal WordPress XML Viewer</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .post { 
+            border: 1px solid #ddd; 
+            padding: 20px; 
+            margin: 15px 0; 
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .post-title { 
+            color: #333; 
+            margin-top: 0;
+        }
+        .meta { 
+            color: #666; 
+            font-size: 0.9em; 
+            margin-bottom: 10px;
+        }
+        .content { 
+            margin-top: 10px;
+            line-height: 1.6;
+        }
+        .debug-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Universal WordPress XML Viewer</h1>
+        <div id="debug-info" class="debug-info">Loading and analyzing XML structure...</div>
+        <div id="content"></div>
+    </div>
+
+    <script>
+        async function loadAndParseXML() {
+            try {
+                const response = await fetch('buildcraft.WordPress.2025-11-17.xml');
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+                if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                    throw new Error('XML parsing error');
+                }
+
+                const items = xmlDoc.getElementsByTagName('item');
+                let debugInfo = `Found ${items.length} items. Analyzing structure...<br>`;
+
+                if (items.length > 0) {
+                    const firstItem = items[0];
+                    const childTags = Array.from(firstItem.children).map(child => child.tagName);
+                    debugInfo += `First item contains these tags: ${childTags.join(', ')}`;
+                }
+
+                document.getElementById('debug-info').innerHTML = debugInfo;
+                displayUniversalContent(xmlDoc);
+
+            } catch (error) {
+                document.getElementById('content').innerHTML = 
+                    `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayUniversalContent(xmlDoc) {
+            const items = xmlDoc.getElementsByTagName('item');
+            let html = `<h2>Content (${items.length} items)</h2>`;
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                
+                // Try multiple possible title tags
+                const title = 
+                    getTagContent(item, 'title') ||
+                    getTagContent(item, 'wp:post_title') ||
+                    getTagContent(item, 'post_title') ||
+                    'No Title Found';
+                
+                // Try multiple possible content tags
+                const content = 
+                    getTagContent(item, 'content:encoded') ||
+                    getTagContent(item, 'description') ||
+                    getTagContent(item, 'wp:post_content') ||
+                    getTagContent(item, 'post_content') ||
+                    getTagContent(item, 'content') ||
+                    'No Content Found';
+                
+                // Try multiple possible date tags
+                const date = 
+                    getTagContent(item, 'pubDate') ||
+                    getTagContent(item, 'wp:post_date') ||
+                    getTagContent(item, 'post_date') ||
+                    'Unknown Date';
+
+                html += `
+                    <div class="post">
+                        <h3 class="post-title">${title}</h3>
+                        <div class="meta">
+                            <strong>Date:</strong> ${new Date(date).toLocaleDateString()} |
+                            <strong>Item ${i + 1}</strong>
+                        </div>
+                        <div class="content">
+                            ${content.substring(0, 500)}${content.length > 500 ? '...' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function getTagContent(item, tagName) {
+            const elements = item.getElementsByTagName(tagName);
+            return elements.length > 0 ? elements[0].textContent : null;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadAndParseXML);
+    </script>
+</body>
+</html>

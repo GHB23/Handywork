@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML Structure Debugger</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .item { border: 1px solid #ccc; margin: 10px 0; padding: 15px; background: #f9f9f9; }
+        .tag { color: #0073aa; font-weight: bold; }
+        .content { background: white; padding: 10px; margin: 5px 0; border-left: 3px solid #0073aa; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>XML Structure Debugger</h1>
+    <div id="debug-info"></div>
+    <div id="xml-structure"></div>
+
+    <script>
+        async function debugXML() {
+            try {
+                const response = await fetch('buildcraft.WordPress.2025-11-17.xml');
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+                // Check for parsing errors
+                if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                    document.getElementById('debug-info').innerHTML = 
+                        '<div class="error">XML Parsing Error: ' + 
+                        xmlDoc.getElementsByTagName("parsererror")[0].textContent + '</div>';
+                    return;
+                }
+
+                // Show basic info
+                const items = xmlDoc.getElementsByTagName('item');
+                document.getElementById('debug-info').innerHTML = `
+                    <div class="success">
+                        <h3>XML Loaded Successfully</h3>
+                        <p>Found ${items.length} &lt;item&gt; elements</p>
+                    </div>
+                `;
+
+                // Show structure of first few items
+                let structureHTML = '<h3>Structure of First 3 Items:</h3>';
+                for (let i = 0; i < Math.min(3, items.length); i++) {
+                    structureHTML += `<div class="item">`;
+                    structureHTML += `<h4>Item ${i + 1}:</h4>`;
+                    
+                    const item = items[i];
+                    for (let j = 0; j < item.children.length; j++) {
+                        const child = item.children[j];
+                        structureHTML += `
+                            <div class="tag">&lt;${child.tagName}&gt;</div>
+                            <div class="content">${child.textContent.substring(0, 200)}...</div>
+                        `;
+                    }
+                    structureHTML += `</div>`;
+                }
+
+                document.getElementById('xml-structure').innerHTML = structureHTML;
+
+            } catch (error) {
+                document.getElementById('debug-info').innerHTML = 
+                    '<div class="error">Error: ' + error.message + '</div>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', debugXML);
+    </script>
+</body>
+</html>
