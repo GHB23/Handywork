@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordPress Content Viewer</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .post { 
+            border: 1px solid #ddd; 
+            padding: 25px; 
+            margin: 20px 0; 
+            border-radius: 8px;
+            background: #fff;
+            transition: box-shadow 0.3s ease;
+        }
+        .post:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .post-title { 
+            color: #2c3e50; 
+            margin-top: 0;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .meta { 
+            color: #7f8c8d; 
+            font-size: 0.9em; 
+            margin-bottom: 15px;
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .content { 
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .image-preview {
+            max-width: 300px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+            background: white;
+        }
+        .no-content {
+            color: #e74c3c;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+            background: #ffeaa7;
+            border-radius: 5px;
+        }
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .stats {
+            background: #34495e;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .tag {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ BuildCraft WordPress Export</h1>
+        
+        <div class="stats" id="stats">
+            Loading content statistics...
+        </div>
+
+        <input type="text" id="search" class="search-box" placeholder="🔍 Search posts by title or content...">
+
+        <div id="content">
+            <div style="text-align: center; padding: 40px;">
+                <div style="font-size: 48px;">📊</div>
+                <p>Loading WordPress content...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allPosts = [];
+
+        async function loadWordPressXML() {
+            try {
+                const response = await fetch('buildcraft.WordPress.2025-11-17.xml');
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+                if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                    throw new Error('Failed to parse XML file');
+                }
+
+                parseWordPressItems(xmlDoc);
+                displayWordPressContent();
+                setupSearch();
+
+            } catch (error) {
+                document.getElementById('content').innerHTML = 
+                    `<div class="no-content">Error loading content: ${error.message}</div>`;
+            }
+        }
+
+        function parseWordPressItems(xmlDoc) {
+            const items = xmlDoc.getElementsByTagName('item');
+            allPosts = [];
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                
+                const title = getTagContent(item, 'title') || `Untitled Item ${i + 1}`;
+                const link = getTagContent(item, 'link') || '#';
+                const pubDate = getTagContent(item, 'pubDate') || 'Unknown date';
+                const creator = getTagContent(item, 'dc:creator') || 'Unknown author';
+                const guid = getTagContent(item, 'guid') || '';
+                const description = getTagContent(item, 'description') || '';
+                const content = getTagContent(item, 'content:encoded') || '';
+                const excerpt = getTagContent(item, 'excerpt:encoded') || '';
+
+                // Determine if this is a media/image item
+                const isMedia = guid.includes('/wp-content/uploads/') || 
+                               title.includes('.webp') || 
+                               title.includes('.jpg') || 
+                               title.includes('.png');
+
+                allPosts.push({
+                    title: title,
+                    link: link,
+                    pubDate: pubDate,
+                    creator: creator,
+                    guid: guid,
+                    description: description,
+                    content: content,
+                    excerpt: excerpt,
+                    isMedia: isMedia,
+                    index: i + 1
+                });
+            }
+
+            // Update stats
+            const mediaCount = allPosts.filter(post => post.isMedia).length;
+            const contentCount = allPosts.filter(post => !post.isMedia && post.content).length;
+            
+            document.getElementById('stats').innerHTML = `
+                <strong>📈 Content Overview:</strong><br>
+                • Total Items: ${allPosts.length}<br>
+                • Media Files: ${mediaCount}<br>
+                • Content Posts: ${contentCount}<br>
+                • Export Date: ${new Date().toLocaleDateString()}
+            `;
+        }
+
+        function displayWordPressContent(filteredPosts = allPosts) {
+            let html = '';
+
+            if (filteredPosts.length === 0) {
+                html = `<div class="no-content">No matching content found. Try a different search term.</div>`;
+            } else {
+                filteredPosts.forEach(post => {
+                    const displayContent = post.content || post.description || post.excerpt;
+                    
+                    html += `
+                        <div class="post">
+                            <h2 class="post-title">${post.title}</h2>
+                            <div class="meta">
+                                <strong>📅 Date:</strong> ${new Date(post.pubDate).toLocaleDateString()} | 
+                                <strong>👤 Author:</strong> ${post.creator} |
+                                <strong>🔗 </strong><a href="${post.link}" target="_blank">Original Post</a>
+                                ${post.isMedia ? '<span class="tag">🖼️ Media</span>' : '<span class="tag">📝 Post</span>'}
+                            </div>
+
+                            ${post.isMedia ? `
+                                <div class="content">
+                                    <strong>Media File:</strong><br>
+                                    <img src="${post.guid}" alt="${post.title}" class="image-preview" onerror="this.style.display='none'">
+                                    <div><strong>URL:</strong> <a href="${post.guid}" target="_blank">${post.guid}</a></div>
+                                </div>
+                            ` : ''}
+
+                            ${displayContent && !post.isMedia ? `
+                                <div class="content">
+                                    <strong>Content:</strong><br>
+                                    ${formatContent(displayContent)}
+                                </div>
+                            ` : ''}
+
+                            ${!displayContent && !post.isMedia ? `
+                                <div class="no-content">
+                                    No text content available for this item.
+                                    ${post.description ? `<br><small><em>Description: ${post.description}</em></small>` : ''}
+                                </div>
+                            ` : ''}
+
+                            <div style="margin-top: 10px; font-size: 0.8em; color: #95a5a6;">
+                                Item ${post.index} of ${allPosts.length}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function formatContent(content) {
+            // Basic content formatting
+            return content
+                .substring(0, 1000) // Limit preview length
+                .replace(/\[.*?\]/g, '') // Remove shortcodes
+                .replace(/<[^>]*>/g, '') // Remove HTML tags
+                .replace(/\n/g, '<br>') // Preserve line breaks
+                + (content.length > 1000 ? '...' : '');
+        }
+
+        function setupSearch() {
+            document.getElementById('search').addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const filtered = allPosts.filter(post => 
+                    post.title.toLowerCase().includes(searchTerm) ||
+                    (post.content && post.content.toLowerCase().includes(searchTerm)) ||
+                    (post.description && post.description.toLowerCase().includes(searchTerm))
+                );
+                displayWordPressContent(filtered);
+            });
+        }
+
+        function getTagContent(item, tagName) {
+            try {
+                const elements = item.getElementsByTagName(tagName);
+                return elements.length > 0 ? elements[0].textContent : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Load the XML when page is ready
+        document.addEventListener('DOMContentLoaded', loadWordPressXML);
+    </script>
+</body>
+</html>
